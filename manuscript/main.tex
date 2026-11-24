@@ -1,0 +1,66 @@
+%% Springer Nature LaTeX template (sn-jnl), Math and Physical Sciences numbered reference style
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
+
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{amsthm}%
+\usepackage{mathrsfs}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{manyfoot}%
+\usepackage{booktabs}%
+\usepackage{algorithm}%
+\usepackage{algorithmicx}%
+\usepackage{algpseudocode}%
+\usepackage{listings}%
+\usepackage{array}%
+\usepackage{rotating}%
+
+\raggedbottom
+
+\begin{document}
+
+\title[Calibrated Three-Way Gating of Multimodal Auto-Insurance Claims]{Calibrated Three-Way Gating of Multimodal Auto-Insurance Claims with a Closed-Set Decision Model}
+
+%% TODO(authors): confirm the first author's e-mail (the original author list wrote it with a space).
+\author*[1]{\fnm{Kadiyala} \sur{Rajesh}}\email{rajesh\_kadiyala@srmap.edu.in}
+
+\author[1]{\fnm{Matta} \sur{Vikas}}\email{matta\_vikas@srmap.edu.in}
+
+\author[1]{\fnm{Mudigonda} \sur{Krishna Siva Prasad}}\email{krishna\_siva\_prasad@srmap.edu.in}
+
+\affil*[1]{\orgdiv{Department of Computer Science and Engineering}, \orgname{SRM AP University}, \orgaddress{\city{Amaravati}, \postcode{522240}, \country{India}}}
+
+%% Abstract is written last, after Results and Discussion (course guideline).
+\input{sections/abstract}
+
+\keywords{insurance claim triage, multimodal fusion, selective prediction, calibration, human-in-the-loop, decision model}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/literature_review}
+\input{sections/methodology}
+\input{sections/results}
+\input{sections/conclusion}
+
+\backmatter
+
+\bmhead{Acknowledgements}
+[To be completed by the authors, or removed if there are none.]
+
+\section*{Declarations}
+\begin{itemize}
+\item \textbf{Funding:} [To be completed by the authors.]
+\item \textbf{Competing interests:} [To be completed by the authors.]
+\item \textbf{Ethics approval and consent to participate:} Not applicable. The study involves no human participants; it uses a public insurance-claims data set and the CarDD image set under its research licence.
+\item \textbf{Data availability:} The benchmark pairs CarDD photographs~\cite{wang2023cardd}, which are available from their owners under a licence that forbids redistribution, with records from the public Auto Insurance Claims data set~\cite{kaggleclaims}. Neither the images nor the paired records are redistributed. The parsed model outputs and analysis results used in this paper are included in the code repository.
+\item \textbf{Code availability:} Code, prompts, frozen configurations and evaluation scripts are available at \url{https://github.com/rajeshkadiyalaaa/Claim_detection_Mulimodel}.
+\item \textbf{Author contributions:} [To be completed by the authors, for example using CRediT roles.]
+\end{itemize}
+
+\bibliography{references}
+
+\end{document}

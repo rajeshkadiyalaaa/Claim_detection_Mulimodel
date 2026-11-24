@@ -1,0 +1,140 @@
+\section{Proposed Methodology}\label{sec:method}
+
+The proposed method is a \emph{calibrated three-way claim gate}. It takes a vehicle photograph, a categorical claim description and eleven numerical claim and policy fields, and returns one of three routes: Auto-Approve ($\mathsf{A}$), Reject/Fraud-Audit ($\mathsf{R}$) or Escalate-Human ($\mathsf{E}$). Only $\mathsf{A}$ settles a claim without a person; $\mathsf{R}$ refers it to a human fraud investigation and never rejects it automatically (the name is the option text of the frozen routing question). The method has four stages: the numerical fields are serialised into a labelled text block; one request to Gemini Decision~1~\cite{google2026decisions} carries the photograph, the description, the numbers and five closed-set questions; a small learned combiner maps the returned probabilities to route probabilities; and a cost-aware threshold rule, tuned on the validation split, issues the route or escalates the claim. The inputs are fused twice: they are read jointly inside one request, and image--text and number--text agreement are asked as explicit questions. The decision model is used zero-shot. The only quantities fitted to data are the 24 combiner parameters and two thresholds.
+
+\subsection{Mathematical model}\label{sec:math}
+
+\paragraph{Inputs and scores.}
+Let $\mathcal{D}=\{(x_i,y_i)\}_{i=1}^{N}$, $N=1{,}000$, be split into $\mathcal{D}_{\mathrm{tr}}$, $\mathcal{D}_{\mathrm{val}}$ and $\mathcal{D}_{\mathrm{te}}$. Each claim is
+\begin{equation}
+x_i=(I_i,\;T_i,\;\mathbf{n}_i),\qquad \mathbf{n}_i\in\mathbb{R}^{11},\qquad y_i\in\mathcal{Y}=\{\mathsf{A},\mathsf{R},\mathsf{E}\}, \label{eq:input}
+\end{equation}
+where $I_i$ is the JPEG photograph, $T_i$ the categorical description, $\mathbf{n}_i$ the eleven numerical fields and $y_i$ the routing label. Escalation is a valid class: a claim labelled $\mathsf{E}$ is handled correctly when it is escalated. A serialisation function $\phi:\mathbb{R}^{11}\rightarrow\Sigma^{*}$ writes the numbers as labelled text over the character set $\Sigma$, and the request is
+\begin{equation}
+r_i=\big\langle \iota,\; I_i,\; T_i,\; \phi(\mathbf{n}_i),\; \mathcal{Q}\big\rangle, \label{eq:request}
+\end{equation}
+with a fixed instruction $\iota$ and the questions $\mathcal{Q}=\{q_1,\dots,q_5\}$ of Table~\ref{tab:questions}. Question $q_j$ has options $\mathcal{O}_j$, with $\mathcal{O}_1=\mathcal{Y}$ and $\mathcal{O}_j=\{\textit{yes},\textit{no}\}$ for $j\ge2$. We treat the decision model as a black-box scorer $F$ that returns a distribution over each question's options,
+\begin{equation}
+\mathbf{p}_{ij}=F(r_i,q_j)\in\Delta^{|\mathcal{O}_j|-1},\qquad s_{ij}=p_{ij}(\textit{yes}),\quad j=2,\dots,5, \label{eq:scores}
+\end{equation}
+where $\Delta^{m}$ is the $m$-dimensional probability simplex. The service answers all questions about one input in a single forward pass and generates no output text~\cite{google2026decisions}; we do not assume its probabilities are calibrated. The checks mean, in order: the visible damage matches the reported severity ($s_{i2}$, image--text), the photograph is clear enough to judge ($s_{i3}$), the details are complete ($s_{i4}$), and the amounts match the reported severity ($s_{i5}$, number--text).
+
+\paragraph{Learned combiner.}
+A general decision model does not know a particular insurer's routing policy, so the seven probabilities form a feature vector
+\begin{equation}
+\mathbf{z}_i=\big(p_{i1}(\mathsf{A}),\,p_{i1}(\mathsf{R}),\,p_{i1}(\mathsf{E}),\,s_{i2},\,s_{i3},\,s_{i4},\,s_{i5}\big)\in[0,1]^{7}, \label{eq:features}
+\end{equation}
+mapped to route probabilities by a multinomial logistic regression,
+\begin{equation}
+h_y(\mathbf{z}_i)=\frac{\exp(\mathbf{w}_y^{\top}\mathbf{z}_i+b_y)}{\sum_{y'\in\mathcal{Y}}\exp(\mathbf{w}_{y'}^{\top}\mathbf{z}_i+b_{y'})},\qquad y\in\mathcal{Y}, \label{eq:combiner}
+\end{equation}
+with weights $\mathbf{w}_y\in\mathbb{R}^{7}$ and biases $b_y$ ($3\times8=24$ parameters $\boldsymbol{\Theta}$). They minimise the $L_2$-regularised cross-entropy on the training split,
+\begin{equation}
+\mathcal{L}_{\mathrm{comb}}(\boldsymbol{\Theta})=-\frac{1}{|\mathcal{D}_{\mathrm{tr}}|}\sum_{i\in\mathcal{D}_{\mathrm{tr}}}\log h_{y_i}(\mathbf{z}_i)+\frac{1}{2C\,|\mathcal{D}_{\mathrm{tr}}|}\sum_{y\in\mathcal{Y}}\lVert\mathbf{w}_y\rVert_2^2, \label{eq:combloss}
+\end{equation}
+where the inverse regularisation $C$ is selected from $\{0.01,0.1,1,10,100\}$ by validation log loss. The predicted route and its confidence are
+\begin{equation}
+\hat{y}_i=\arg\max_{y\in\mathcal{Y}}h_y(\mathbf{z}_i),\qquad c_i=\max_{y\in\mathcal{Y}}h_y(\mathbf{z}_i). \label{eq:route}
+\end{equation}
+
+\paragraph{Support and gate.}
+An automatic approval should rest on consistent, clear and complete evidence, and an automatic audit on a clear photograph with at least one inconsistency:
+\begin{equation}
+\sigma_i(\mathsf{A})=\min\{s_{i2},s_{i3},s_{i4},s_{i5}\},\qquad \sigma_i(\mathsf{R})=\min\big\{s_{i3},\max\{1-s_{i2},1-s_{i5}\}\big\}, \label{eq:support}
+\end{equation}
+where $\min$ acts as a conjunction and $\max$ as a disjunction. For thresholds $\boldsymbol{\tau}=(\tau_c,\tau_s)\in[0,1]^2$ the gate issues
+\begin{equation}
+g_i(\boldsymbol{\tau})=
+\begin{cases}
+\hat{y}_i, & \text{if } \hat{y}_i\in\{\mathsf{A},\mathsf{R}\},\; c_i\ge\tau_c \text{ and } \sigma_i(\hat{y}_i)\ge\tau_s,\\
+\mathsf{E}, & \text{otherwise;}
+\end{cases} \label{eq:gate}
+\end{equation}
+$\tau_s=0$ gives a confidence-only gate.
+
+\paragraph{Cost and objective.}
+Routing errors have unequal consequences, so decisions are scored with
+\begin{equation}
+C(y,g)=\begin{cases}
+0, & g=y,\\
+c_{\mathrm{FA}},\ c_{\mathrm{FR}}\ \text{or}\ c_{\mathrm{H}}, & g=\mathsf{A},\ \mathsf{R}\ \text{or}\ \mathsf{E}\ \text{and}\ g\neq y,
+\end{cases} \label{eq:cost}
+\end{equation}
+where $c_{\mathrm{FA}}$, $c_{\mathrm{FR}}$ and $c_{\mathrm{H}}$ are the costs of a wrongful approval, a wrongful audit and an unnecessary human review. We assume $c_{\mathrm{FA}}>c_{\mathrm{FR}}>c_{\mathrm{H}}>0$, use $(10,4,1)$ by default and test other values in Section~\ref{sec:exp}. With the combiner fixed, the thresholds minimise the empirical validation cost over the grid $\mathcal{T}=\{0,0.05,\dots,1\}^2$, with ties broken towards higher coverage:
+\begin{equation}
+\boldsymbol{\tau}^{*}=\arg\min_{\boldsymbol{\tau}\in\mathcal{T}}\;\frac{1}{|\mathcal{D}_{\mathrm{val}}|}\sum_{i\in\mathcal{D}_{\mathrm{val}}} C\big(y_i,\,g_i(\boldsymbol{\tau})\big). \label{eq:objective}
+\end{equation}
+
+\paragraph{Baselines and efficiency.}
+Each supervised baseline outputs probabilities $\hat{\mathbf{p}}_i$ and minimises the cross-entropy $\mathcal{L}(\boldsymbol{\theta})=-\frac{1}{|\mathcal{D}_{\mathrm{tr}}|}\sum_{i\in\mathcal{D}_{\mathrm{tr}}}\log \hat{p}_i(y_i)$; it is gated by Eq.~(\ref{eq:gate}) with $c_i=\max_y\hat{p}_i(y)$, $\tau_s=0$ and $\tau_c$ from Eq.~(\ref{eq:objective}), so differences reflect the scores, not the decision rule. For each request we record the latency $\ell_i$ and billed tokens $u_i^{\mathrm{in}},u_i^{\mathrm{out}}$, and the cost per decision is
+\begin{equation}
+\kappa_i=\pi^{\mathrm{in}}u_i^{\mathrm{in}}+\pi^{\mathrm{out}}u_i^{\mathrm{out}}, \label{eq:apicost}
+\end{equation}
+with per-token prices $\pi^{\mathrm{in}},\pi^{\mathrm{out}}$ on the run date ($u_i^{\mathrm{out}}=0$ for Decision~1~\cite{google2026decisions}).
+
+\subsection{Proposed architecture and algorithm}\label{sec:arch}
+
+Figure~\ref{fig:architecture} shows the pipeline and Algorithm~\ref{alg:gate} lists its steps.
+
+\begin{figure}[!htb]
+\centering
+%% Editable source: figures/architecture.drawio (draw.io); exported with draw.io CLI.
+\includegraphics[width=\textwidth]{figures/architecture.png}
+\caption{Architecture of the calibrated three-way claim gate. The three inputs of a claim (vehicle damage photograph, categorical claim description, and claim amounts with policy data) are preprocessed and sent together in a single Gemini Decision~1 request with five decision questions: one routing question and four yes/no checks. The calibrated gate applies a learned combiner to the five answers, then a confidence threshold, and routes the claim to Auto-Approve, Fraud Audit or Escalate to Human; claims that do not pass the gate are escalated.}\label{fig:architecture}
+\end{figure}
+
+\begin{algorithm}[!htb]
+\caption{Calibrated three-way claim gating}\label{alg:gate}
+\begin{algorithmic}[1]
+\Require Splits $\mathcal{D}_{\mathrm{tr}},\mathcal{D}_{\mathrm{val}},\mathcal{D}_{\mathrm{te}}$; instruction $\iota$; questions $\mathcal{Q}$; cost $C$; grid $\mathcal{T}$
+\Ensure Routes $g_i\in\{\mathsf{A},\mathsf{R},\mathsf{E}\}$ for $i\in\mathcal{D}_{\mathrm{te}}$
+\For{each claim $i$ in all splits}
+  \State send $r_i$ (Eq.~\ref{eq:request}); receive $\{\mathbf{p}_{ij}\}_{j=1}^{5}$; record $\ell_i,u_i^{\mathrm{in}}$; build $\mathbf{z}_i,\sigma_i$ \Comment{one call}
+\EndFor
+\State fit $\boldsymbol{\Theta}$ on $\mathcal{D}_{\mathrm{tr}}$ (Eq.~\ref{eq:combloss}); choose $C$ and $\boldsymbol{\tau}^{*}$ (Eq.~\ref{eq:objective}) on $\mathcal{D}_{\mathrm{val}}$
+\For{each claim $i\in\mathcal{D}_{\mathrm{te}}$}
+  \State $(\hat{y}_i,c_i)$ from Eq.~(\ref{eq:route}); $g_i\gets\hat{y}_i$ \textbf{if} $\hat{y}_i\neq\mathsf{E}$, $c_i\ge\tau_c^{*}$, $\sigma_i(\hat{y}_i)\ge\tau_s^{*}$ \textbf{else} $\mathsf{E}$
+\EndFor
+\State \Return $\{g_i,c_i,\ell_i,\kappa_i\}_{i\in\mathcal{D}_{\mathrm{te}}}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Input data and preprocessing}\label{sec:preproc}
+
+The photograph is sent as a base64 JPEG, longer side at most 1,024 pixels, at the API's \emph{medium} resolution, without enhancement, because blur, low light and cropping are evidence. The text is the \texttt{claim\_description} field (missing values appear as \textit{unrecorded}). $\phi$ writes the numbers one per line in source units (``Total claim amount: 57,720''), following prior claim-fraud work~\cite{slm2026}. The \texttt{pairing\_reason} field, which records how each label was assigned, and the \texttt{claim\_text\_summary} field, which repeats the numbers in the text, are never sent.
+
+\subsubsection{Decision question design}\label{sec:questions}
+
+The questions replace feature extraction (Table~\ref{tab:questions}). A fixed instruction (``You are assessing a motor insurance claim. The photograph shows the claimed vehicle. The claim description and claim figures follow. Answer each question using only this evidence.'') opens the input, and each option of $q_1$ carries a one-line criterion~\cite{google2026decisions}. The questions were written from the benchmark's construction rules (Section~\ref{sec:data}) and fixed before any test claim was scored: $q_2$ restates the severity-mismatch rule that defines audits, $q_3$ targets the photograph degradation applied to every escalation, and $q_4$ tracks the police field and theft. The trained baselines receive no such knowledge, which matters when labels are few.
+
+\begin{table}[!htb]
+\caption{Closed-set questions sent in every Decision~1 request.}\label{tab:questions}
+\footnotesize
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}p{0.6cm}p{7.2cm}p{3.8cm}@{}}
+\toprule
+ID & Question & Options \\
+\midrule
+$q_1$ & Which handling route does this claim require? & Auto-Approve (evidence clear, complete and consistent); Reject/Fraud-Audit (photograph and claim disagree, or claim appears inflated); Escalate-Human (evidence too unclear or incomplete to decide) \\
+$q_2$ & Is the damage visible in the photograph consistent with the severity reported in the claim description? & yes / no \\
+$q_3$ & Is the photograph clear, well lit and complete enough to judge the extent of the damage? & yes / no \\
+$q_4$ & Are the claim details complete and unambiguous? & yes / no \\
+$q_5$ & Are the claimed amounts consistent with the reported severity and incident type? & yes / no \\
+\botrule
+\end{tabular*}
+\end{table}
+
+\subsubsection{Cross-modal alignment}\label{sec:alignment}
+
+No alignment module is trained, and we make no claims about Decision~1's undocumented internals. Instead, $q_2$ (image--text) and $q_5$ (number--text) make alignment an explicit probability for a named question, as cross-modal inconsistency features do in misinformation detection~\cite{akhtar2026}. These probabilities are not shown to be calibrated and vary between calls, so they serve as combiner features, not as scores for reviewers.
+
+\subsubsection{Multimodal fusion at the decision level}\label{sec:fusion}
+
+The combiner (Eqs.~\ref{eq:features}--\ref{eq:route}) fuses the seven answers into a route and a confidence; the gate (Eq.~\ref{eq:gate}) can also require the checks to support the route through fixed $\min$/$\max$ rules stated in advance. Whether that support condition is used is left to the threshold search; if validation selects $\tau_s=0$, the gate is a confidence threshold.
+
+\subsubsection{Learning, prediction, baselines and protocol}\label{sec:learning}
+
+The combiner is fitted on training, and $C$ and the thresholds are chosen on validation and applied unchanged to test. Baselines are B1 (TF-IDF unigrams and bigrams with logistic regression), B2 (XGBoost~\cite{chen2016xgboost} on the numbers), B3 (frozen CLIP ViT-B/32 embeddings~\cite{radford2021clip} with logistic regression), B4 (XGBoost on CLIP, a truncated-SVD projection of TF-IDF and the standardised numbers), B5 (Gemini 3.8 Flash in its default configuration with ``thinking'', asked for a JSON route and confidence) and B5-fair (the same model given the same five questions at the same resolution with the lowest thinking budget, its option probabilities passed through the same combiner and gate). B5-fair compares two hosted models; it does not isolate scoring from generation, because the model, the probability source and residual thinking all change.
+
+Five controls measure the effect of the benchmark's construction: a no-learning \emph{text rule} (escalate a theft or an unrecorded police report, audit a total loss, approve otherwise); an \emph{image-quality detector} (logistic regression on five image statistics); a \emph{matched subset} of approvals and audits reporting major damage with a recorded police status; two oracle-informed \emph{rule-aware learners} (logistic regression on seven text indicators for severity, theft and police status, without and with the image statistics); and a \emph{degradation control}, in which the clear photographs of the 103 test approvals and audits are blurred (radius 17 pixels), darkened (24\% brightness) or corner-cropped (about 18\% of the area) and re-sent with the request otherwise unchanged. Ablations remove the combiner, each modality, each check and the support condition.
+
+The frozen configuration was scored on test once; test was later reused for ablations, error analysis, a post-hoc revision, B5-fair and the controls. Five repetitions of stratified five-fold cross-validation over all 1,000 claims, with thresholds from cross-fitted predictions inside each training fold, fixed hyperparameters ($C=10$; the frozen $C=100$ is also reported) and a confidence-only gate, repeat the comparison; paired differences use the corrected resampled $t$-test~\cite{nadeau2003} over the 25 fold-level differences (variance factor $1/25+0.25$, 24 degrees of freedom). Question wording and B4's settings were set on validation claims inside this pool. A learning curve refits all trained methods on 25 to 700 training claims (ten stratified draws per size) and evaluates them on the 300 validation and test claims, and the first 100 test claims are re-sent to measure call-to-call stability.

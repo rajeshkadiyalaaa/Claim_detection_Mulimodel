@@ -1,0 +1,39 @@
+\section{Literature Review}\label{sec:litreview}
+
+We review peer-reviewed work published in 2026, found through three structured searches of a scholarly index and checked against Crossref and OpenAlex, plus classic method papers; gap statements refer to this surveyed literature. Table~\ref{tab:lit} compares the closest studies.
+
+\paragraph{Single-modality claim analytics.}
+Tabular fraud models show that calibration and cost can be measured: for motor fraud, Bekkaye et al.~\cite{bekkaye2026} found CatBoost the most balanced classifier and TabNet the lowest expected cost. Related work adds interpretability~\cite{ebinezer2026}, graph-aware boosting~\cite{vandervorst2026}, human-in-the-loop audit prioritisation~\cite{huang2026} and serialisation of numbers into text for small language models~\cite{slm2026}, which supports our numerical input format. None sees the photograph. Vision models estimate damage type, location and severity~\cite{ouf2026,li2026part,dalal2026}, reaching 89.30\% accuracy at about 6\,ms per image on CarDD~\cite{wang2023cardd,cheng2026}, but they answer \emph{what damage is visible}, not \emph{whether the claim is believable}, and area-based severity depends on viewpoint~\cite{li2026part}. Shao et al.~\cite{shao2026} added abstention and coverage--risk analysis to vision--language damage assessment, on images alone.
+
+\paragraph{Multimodal fraud and claim systems.}
+In motor claims, damage detection and fraud prediction have developed separately; one system passes detector descriptors to a random forest~\cite{subhash2026}, and FADES~\cite{arconzo2026} combines language-model agents, detectors trained on 13,353 accident images and rule-based severity, but reports a large domain gap on CarDD. Elsewhere, tri-modal fusion is learned end to end~\cite{nazir2026,ping2026,tatavarthi2026}: trust in each modality is buried in learned weights, the output is a fraud score rather than a route, and learned fusion degrades on noisy or low-quality inputs~\cite{zhang2026fusion}. T-CAMIF~\cite{akhtar2026} instead makes text--image inconsistency an explicit, informative feature, an idea not yet applied to a claim and its photograph.
+
+\paragraph{Language models, deferral and calibration.}
+Language models extract features from actuarial text and accident narratives~\cite{hatzesberger2026,hao2026traffic,chen2026bus}, generate forms and damage descriptions~\cite{arconzo2026,phuengpanyaloet2026}, or classify damage when prompted~\cite{mitrenga2026}; none of these studies reports the latency or cost of a model decision or uses a model that returns probabilities over fixed options. Withholding a decision dates to Chow's reject rule~\cite{chow1970} and selective classification~\cite{geifman2017selective}. Fraud systems defer transactions on which an ensemble disagrees, raising recall from 0.76 to 0.91 at 5\% deferral~\cite{liu2026daunt}, escalate cases whose rationales fail a verifier~\cite{sourav2026}, or route low-confidence cases to people~\cite{syed2026,dadi2026}; surveys treat abstention as the central hand-over mechanism~\cite{lazaros2026,punzi2026,presacan2026}. Reliability is reported with expected calibration error~\cite{naeini2015,guo2017calibration} and the Brier score~\cite{brier1950}. All of these deferral systems use tabular or transaction data.
+
+\begin{sidewaystable}
+\caption{Comparison of recent studies related to multimodal claim gating. Modalities: I = image, T = text, N = numerical/tabular, G = graph, L = document layout.}\label{tab:lit}
+\scriptsize
+\begin{tabular*}{\textheight}{@{\extracolsep{\fill}}>{\raggedright\arraybackslash}p{2.0cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{1.0cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{3.4cm}@{}}
+\toprule
+Reference & Problem/task & Data set & Modal. & Approach / fusion & Reported results & Limitations / relevance \\
+\midrule
+Bekkaye et al.~\cite{bekkaye2026} & Motor-insurance fraud & Auto-insurance fraud records & N & Six boosting and deep tabular models; resampling; calibration and expected cost & No single best model; TabNet lowest expected cost & No image or text; binary output \\
+Ebinezer et al.~\cite{ebinezer2026} & Insurance fraud & 4,000 life claims, 83 attributes & N & CatBoost, Bi-GRU, TabTransformer; SHAP & Bi-GRU highest fraud recall & Tabular only; no deferral \\
+El-Enen et al.~\cite{slm2026} & Medical-claim fraud & Medical activity records & T+N & Numbers and text serialised; small-LM embeddings; swarm feature selection & Up to 87\% accuracy & Supports text serialisation of numbers; no image \\
+Cheng et al.~\cite{cheng2026} & Damage classification & CarDD and insurer data & I & Region-aware ResNet-50 mixture of experts & 89.30\% test accuracy; 6\,ms per image & Image only; same image source as ours \\
+Li et al.~\cite{li2026part} & Part-level severity & Own damage set; public part set & I & YOLO11 segmentation; damage-to-part area ratio & Higher mAP at strict IoU & Area severity sensitive to viewpoint \\
+Shao et al.~\cite{shao2026} & Vehicle damage state with abstention & 160 vehicles, 355 media & I & Two vision--language configurations; coverage--risk & Macro-F1 0.8645 vs 0.1923 & Abstention on images only \\
+Arconzo et al.~\cite{arconzo2026} & First notice of loss and damage & 13,353 accident images & I+T+N & LLM agents; transformer detectors; rule-based severity & Processing 30$\rightarrow$12 min & Generative multi-stage; CarDD domain gap \\
+Sri Subhash and Chellamani~\cite{subhash2026} & Motor claim verification & VehiDE and a constructed fraud set & I, N & Faster R-CNN descriptors fed to a random forest & 98\% accuracy; F1 0.85 & Sequential use of the image; binary \\
+Nazir et al.~\cite{nazir2026} & Healthcare fraud & Healthcare claims & N+T+G & TabNet, ClinicalBERT, GAT; reliability-aware attention & 99.95\% accuracy reported & Near-perfect scores; opaque learned fusion \\
+Ping et al.~\cite{ping2026} & Financial-statement fraud & 6,000+ EDGAR filings & N+T+L & Residual MLP, FinBERT, LayoutLMv2; gated fusion & AUC 0.923; F1 0.847 & Tri-modal fusion outside claims \\
+Liu and Zhu~\cite{liu2026daunt} & Transaction fraud triage & ULB, IEEE-CIS & N & Ensemble disagreement; defer most uncertain & Recall 0.76$\rightarrow$0.91 at 5\% deferral & Deferral, but tabular only \\
+Sourav et al.~\cite{sourav2026} & Financial fraud with verified rationales & Five public benchmarks & N+G & LightGBM triage; verified LM rationales; conformal calibration & p99 latency 10.23\,ms / 175.23\,ms & Escalation by verifier; no image \\
+Akhtar and Rana~\cite{akhtar2026} & Text--image fake news & Twitter--Weibo & T+I & Cross-modal inconsistency features; trust-aware fusion & Accuracy 0.9061; AUC 0.9709 & Inconsistency as evidence, as in our check \\
+\botrule
+\end{tabular*}
+\end{sidewaystable}
+
+\paragraph{Research gap.}
+No surveyed study decides on a motor claim from the photograph, description and numbers jointly, except through a multi-stage generative pipeline~\cite{arconzo2026}; calibrated deferral reaches motor claims only for image-only assessment~\cite{shao2026}; no motor-claim study uses claim--photograph agreement as an explicit decision signal~\cite{akhtar2026}; and the cost of a single model decision is unreported. Our method reads all three inputs in one request, turns cross-modal agreement into scores, gives a cost-aware three-way decision, and measures latency and cost against a generative model asked the same questions.

@@ -1,0 +1,135 @@
+{
+  "n_val": 150,
+  "metrics": [
+    {
+      "model": "Decision 1 (q1 only, no gate)",
+      "accuracy": 0.41333333333333333,
+      "macro_f1": 0.19589257503949445,
+      "recall_A": 0.0,
+      "recall_R": 1.0,
+      "recall_E": 0.0,
+      "ece": 0.4068284755233689,
+      "brier": 0.8191661061691029
+    },
+    {
+      "model": "B1 text-only (TF-IDF + LR)",
+      "accuracy": 0.76,
+      "macro_f1": 0.7600933706816059,
+      "recall_A": 0.8048780487804879,
+      "recall_R": 0.8548387096774194,
+      "recall_E": 0.5957446808510638,
+      "ece": 0.12351980556908235,
+      "brier": 0.38041817092430996
+    },
+    {
+      "model": "B2 numbers-only (XGBoost)",
+      "accuracy": 0.49333333333333335,
+      "macro_f1": 0.45312989558513855,
+      "recall_A": 0.2926829268292683,
+      "recall_R": 0.7419354838709677,
+      "recall_E": 0.3404255319148936,
+      "ece": 0.12477505366007487,
+      "brier": 0.647387486783158
+    }
+  ],
+  "gates_in_sample": [
+    {
+      "policy": "Decision 1 + confidence gate",
+      "tau_c": 0.95,
+      "tau_s": 0.0,
+      "mean_cost": 0.62,
+      "accuracy": 0.38,
+      "macro_f1": 0.2601505248564072,
+      "auto_coverage": 0.06666666666666667,
+      "auto_error_rate": 0.0,
+      "wrong_approvals": 0
+    },
+    {
+      "policy": "Decision 1 + confidence & support gate",
+      "tau_c": 0.9,
+      "tau_s": 0.3,
+      "mean_cost": 0.5666666666666667,
+      "accuracy": 0.5333333333333333,
+      "macro_f1": 0.41706498951781973,
+      "auto_coverage": 0.25333333333333335,
+      "auto_error_rate": 0.13157894736842105,
+      "wrong_approvals": 0
+    },
+    {
+      "policy": "B1 + confidence gate",
+      "tau_c": 0.8,
+      "tau_s": 0.0,
+      "mean_cost": 0.6533333333333333,
+      "accuracy": 0.3466666666666667,
+      "macro_f1": 0.2194715007215007,
+      "auto_coverage": 0.03333333333333333,
+      "auto_error_rate": 0.0,
+      "wrong_approvals": 0
+    },
+    {
+      "policy": "B2 + confidence gate",
+      "tau_c": 0.95,
+      "tau_s": 0.0,
+      "mean_cost": 0.6866666666666666,
+      "accuracy": 0.31333333333333335,
+      "macro_f1": 0.15905245346869712,
+      "auto_coverage": 0.0,
+      "auto_error_rate": 0.0,
+      "wrong_approvals": 0
+    }
+  ],
+  "efficiency": {
+    "latency_median_s": 0.7882715624873526,
+    "latency_p90_s": 1.0106753292609938,
+    "latency_mean_s": 0.7963973349922647,
+    "input_tokens_mean": 1086.6266666666668,
+    "image_tokens_mean": 535.6266666666667,
+    "output_tokens_total": 0,
+    "cost_per_decision_usd": 0.00010866266666666669,
+    "cost_per_1000_claims_usd": 0.1086626666666667
+  },
+  "decision1_confusion_rows_true_cols_pred": {
+    "labels": [
+      "Auto-Approve",
+      "Reject_Fraud_Audit",
+      "Escalate_Human"
+    ],
+    "matrix": [
+      [
+        0,
+        41,
+        0
+      ],
+      [
+        0,
+        62,
+        0
+      ],
+      [
+        1,
+        46,
+        0
+      ]
+    ]
+  },
+  "check_score_means_by_true_label": {
+    "Auto-Approve": {
+      "s2": 0.611357099082478,
+      "s3": 0.585832367952746,
+      "s4": 0.585765400918667,
+      "s5": 0.2830276053522279
+    },
+    "Reject_Fraud_Audit": {
+      "s2": 0.180009868070807,
+      "s3": 0.4987171378571732,
+      "s4": 0.5184780824874835,
+      "s5": 0.26919307017597727
+    },
+    "Escalate_Human": {
+      "s2": 0.47136156587285094,
+      "s3": 0.24328938800731548,
+      "s4": 0.5280856331645662,
+      "s5": 0.3186248230347872
+    }
+  }
+}

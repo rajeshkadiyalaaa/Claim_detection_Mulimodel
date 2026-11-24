@@ -1,0 +1,26 @@
+geminiapi.txt
+.env
+.DS_Store
+__pycache__/
+
+# CarDD licence forbids redistribution without PIC Lab authorisation
+data/benchmark_images/
+.venv/
+experiments/cache/
+
+# Benchmark records: built from the Kaggle Auto Insurance Claims data (licence not verified); not redistributed
+data/multimodal_claims_benchmark.csv
+data/multimodal_claims_benchmark.jsonl
+
+# LaTeX build artefacts
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.log
+manuscript/*.out
+manuscript/*.synctex.gz
+
+# Logs and editor junk
+*.log
+.ipynb_checkpoints/
+*.bkp
